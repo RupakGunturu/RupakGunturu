@@ -10,8 +10,9 @@
 <br>
 
 <p align="center">
-  <img src="https://skillicons.dev/icons?i=java,spring,ts,nodejs,react,nextjs,mongodb,postgres,prisma" />
-  <img src="https://skillicons.dev/icons?i=html,css,sass,tailwind,js,vue,redux,d3,git,postman,figma" />
+  <img src="https://skillicons.dev/icons?i=c,java,js,py,html,css,angular,vue,react,nextjs,threejs" />
+  <img src="https://skillicons.dev/icons?i=nodejs,express,fastapi,mongodb,postgres,supabase,firebase" />
+  <img src="https://skillicons.dev/icons?i=docker,github,githubactions,aws,postman,figma,notion,arduino,raspberrypi" />
 </p>
 
 <hr>
