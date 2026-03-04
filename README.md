@@ -1,3 +1,9 @@
+<div align="center"> 
+  <p>Visitor count</p>
+  <img src="https://profile-counter.glitch.me/RupakGunturu/count.svg" alt="Visitor's Count" />
+</div>
+
+
 # 💫 About Me:
 🔭 I’m currently working on:<br>Working on academic and personal development projects<br><br>👯 I’m looking to collaborate on:<br>Open-source projects, web applications, and innovative startup ideas<br><br>🤝 I’m looking for help with:<br>Writing better code, scaling apps, and understanding system trade-offs<br><br>🌱 I’m currently learning:<br>Advanced backend development, cloud services, and modern frontend patterns<br><br>💬 Ask me about:<br>JavaScript, React, Node.js, APIs, databases, and project structuring<br><br>⚡ Fun fact:<br>I learn best by building, breaking, and improving things 🚀
 
