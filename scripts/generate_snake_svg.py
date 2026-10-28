@@ -2,7 +2,7 @@
 """Generate a Platane-style contribution snake over the filtered date range.
 
 The visual matches the old output-branch animation:
-  * 53-week grid (880x192) with 16px cells / 12px dots
+  * week grid sized to the filtered range, with 16px cells / 12px dots
   * a 4-cell purple snake moving through the grid
   * dots disappear as the head reaches them and reset when the loop restarts
   * a thin progress bar fills at the bottom
@@ -25,13 +25,12 @@ DATA = sys.argv[1] if len(sys.argv) > 1 else os.path.join(HERE, "..", "data", "c
 OUTDIR = sys.argv[2] if len(sys.argv) > 2 else os.path.join(HERE, "..", "dist")
 START_DATE = os.environ.get("GH_PROFILE_START", "2026-02-01")
 
-COLS = 53
 ROWS = 7
 CELL = 16
 DOT = 12
 RAD = 2
 SNAKE_LEN = 4
-STEP_MS = 145
+TARGET_LOOP_MS = 60800
 MIX_ITERS = 20000
 SEED = 1
 MIN_EXIT = 45
@@ -59,41 +58,43 @@ def load(path):
 
 def build_grid(days):
     last = max(dt.date.fromisoformat(d["date"]) for d in days)
+    start_date = dt.date.fromisoformat(START_DATE)
+    start = start_date - dt.timedelta(days=(start_date.weekday() + 1) % 7)
     end_sunday = last - dt.timedelta(days=(last.weekday() + 1) % 7)
-    start = end_sunday - dt.timedelta(weeks=COLS - 1)
+    cols = (end_sunday - start).days // 7 + 1
     by_date = {d["date"]: d for d in days}
     dots = {}
-    for col in range(COLS):
+    for col in range(cols):
         for row in range(ROWS):
             date = (start + dt.timedelta(days=col * 7 + row)).isoformat()
             d = by_date.get(date)
             if d and d["date"] >= START_DATE and d["count"] > 0:
                 dots[(col, row)] = max(1, min(int(d.get("level", 1)), 4))
-    return start, last, dots
+    return start, last, dots, cols
 
 
-def neighbors(cell):
+def neighbors(cell, cols):
     x, y = cell
     for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
         nx, ny = x + dx, y + dy
-        if 0 <= nx < COLS and 0 <= ny < ROWS:
+        if 0 <= nx < cols and 0 <= ny < ROWS:
             yield (nx, ny)
 
 
-def base_path():
+def base_path(cols):
     path = []
     for row in range(ROWS):
-        xs = range(COLS) if row % 2 == 0 else range(COLS - 1, -1, -1)
+        xs = range(cols) if row % 2 == 0 else range(cols - 1, -1, -1)
         path.extend((x, row) for x in xs)
     return path
 
 
-def mix_path(path, iterations, seed):
+def mix_path(path, iterations, seed, cols):
     rnd = random.Random(seed)
     pos = {cell: i for i, cell in enumerate(path)}
     for _ in range(iterations):
         end = path[-1]
-        choices = [n for n in neighbors(end) if n != path[-2]]
+        choices = [n for n in neighbors(end, cols) if n != path[-2]]
         if not choices:
             continue
         target = rnd.choice(choices)
@@ -138,14 +139,14 @@ def pct(value):
 
 
 def render(days, palette, out_path):
-    start, last, dots = build_grid(days)
-    path = mix_path(base_path(), MIX_ITERS, SEED)
-    if len(path) != COLS * ROWS or len(set(path)) != len(path):
+    start, last, dots, cols = build_grid(days)
+    path = mix_path(base_path(cols), MIX_ITERS, SEED, cols)
+    if len(path) != cols * ROWS or len(set(path)) != len(path):
         raise RuntimeError("path generation did not cover the grid")
 
     route = build_route(path)
     total = len(route)
-    duration = total * STEP_MS
+    duration = TARGET_LOOP_MS
 
     eat_step = {}
     for i, cell in enumerate(route):
@@ -228,7 +229,7 @@ def render(days, palette, out_path):
         ".u{transform-origin:0 0;transform:scale(0,1);"
         f"animation:none linear {duration}ms infinite}}"
     )
-    bar_width = COLS * CELL
+    bar_width = cols * CELL
     unit = bar_width / len(eaten)
     bar_y = (ROWS + 2) * CELL
     bar_rects = []
@@ -263,7 +264,7 @@ def render(days, palette, out_path):
     )
 
     cells = []
-    for col in range(COLS):
+    for col in range(cols):
         for row in range(ROWS):
             cls = "c" + (f" {dot_class[(col, row)]}" if (col, row) in dot_class else "")
             cells.append(
@@ -271,7 +272,7 @@ def render(days, palette, out_path):
                 f'rx="{RAD}" ry="{RAD}"/>'
             )
 
-    width = (COLS + 2) * CELL
+    width = (cols + 2) * CELL
     height = (ROWS + 5) * CELL
     svg = [
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" '
@@ -289,7 +290,7 @@ def render(days, palette, out_path):
     with open(out_path, "w", encoding="utf-8", newline="\n") as fh:
         fh.write("\n".join(svg))
     print(
-        f"wrote {out_path}: {COLS} weeks, {len(dots)} dots, "
+        f"wrote {out_path}: {cols} weeks, {len(dots)} dots, "
         f"{total} steps, {duration / 1000:.1f}s"
     )
 
