@@ -31,7 +31,7 @@
 
 <p><b>Software Developer</b></p>
 
-[![LinkedIn](https://img.shields.io/badge/LinkedIn-rupak--gunturu-0A66C2?style=for-the-badge&logo=linkedin&logoColor=white)](https://linkedin.com/in/rupak-gunturu-52568a2b9) [![Email](https://img.shields.io/badge/Email-rupak18.dev@gmail.com-EA4335?style=for-the-badge&logo=gmail&logoColor=white)](mailto:rupak18.dev@gmail.com)
+<a href="https://linkedin.com/in/rupak-gunturu-52568a2b9"><img src="./linkedin-badge.svg" width="236" alt="LinkedIn — Rupak Gunturu" /></a>
 
 <br>
 <br>

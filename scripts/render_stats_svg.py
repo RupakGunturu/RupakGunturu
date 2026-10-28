@@ -36,9 +36,9 @@ W, H = 840, 880                      # == rupak-ascii.svg canvas
 PAD = 20
 TITLEBAR_H = 30
 COLS, ROWS = 2, 3
-GAP = 16
+GAP = 14
 TILE_W = (W - PAD * 2 - GAP * (COLS - 1)) / COLS
-TILE_H = 150
+TILE_H = 145
 TILES_TOP = TITLEBAR_H + PAD + 4
 CHART_TOP = TILES_TOP + ROWS * TILE_H + (ROWS - 1) * GAP + GAP
 
@@ -60,7 +60,7 @@ def span(s):
     return f'{short(s["start"])} – {short(s["end"])}' if s["length"] else "—"
 
 
-data = json.load(open(SRC))
+data = json.load(open(SRC, encoding="utf-8"))
 cur, lng, best = data["current_streak"], data["longest_streak"], data["best_day"]
 n_days = len(data["days"])
 
@@ -141,11 +141,11 @@ parts.append(f'<rect x="{chart_x}" y="{CHART_TOP}" width="{chart_w}" height="{ch
 parts.append(f'<text x="{chart_x+24}" y="{CHART_TOP+40}" fill="{MUTED}" font-size="22">$ contributions / month</text>')
 parts.append('</g>')
 
-plot_top = CHART_TOP + 64
-plot_bot = CHART_TOP + chart_h - 40
+plot_top = CHART_TOP + 92
+plot_bot = CHART_TOP + chart_h - 48
 plot_l, plot_r = chart_x + 24, chart_x + chart_w - 24
 slot = (plot_r - plot_l) / len(monthly)
-bar_w = slot * 0.62
+bar_w = slot * 0.64
 peak = max(m["total"] for m in monthly) or 1
 for i, m in enumerate(monthly):
     h = max(2, (plot_bot - plot_top) * m["total"] / peak)
@@ -154,14 +154,15 @@ for i, m in enumerate(monthly):
     delay = BAR_START + i * BAR_STAGGER
     parts.append(f'<rect class="b" x="{bx:.1f}" y="{plot_bot - h:.1f}" width="{bar_w:.1f}" height="{h:.1f}" '
                  f'rx="3" fill="{fill}" style="animation-delay:{delay:.2f}s"/>')
-    mon = datetime.date.fromisoformat(m["month"] + "-01").strftime("%b")[0]
-    parts.append(f'<text x="{bx + bar_w/2:.1f}" y="{plot_bot + 28}" fill="{MUTED}" font-size="18" '
+    mon = datetime.date.fromisoformat(m["month"] + "-01").strftime("%b")
+    parts.append(f'<text x="{bx + bar_w/2:.1f}" y="{plot_bot + 30}" fill="{MUTED}" font-size="16" '
                  f'text-anchor="middle">{mon}</text>')
     if m["total"] == peak:
+        label_y = plot_bot - h - 12
         parts.append(f'<text class="t" style="animation-delay:{delay + BAR_DUR:.2f}s" x="{bx + bar_w/2:.1f}" '
-                     f'y="{plot_bot - h - 10:.1f}" fill="{INK}" font-size="18" text-anchor="middle">{peak:,}</text>')
+                     f'y="{label_y:.1f}" fill="{INK}" font-size="18" text-anchor="middle">{peak:,}</text>')
 
 parts.append('</svg>')
 svg = "".join(parts)
-open(OUT, "w").write(svg)
+open(OUT, "w", encoding="utf-8").write(svg)
 print(f"wrote {OUT}: {W} x {H}, {len(svg)//1024} KB")
