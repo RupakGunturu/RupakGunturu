@@ -1,5 +1,18 @@
-# Source images
+# Photo sources and raster images (SVG art is tracked)
 source-photo.*
-source-prepped.png
+source-prepped.*
 RSR18*
+*.png
+*.jpg
 *.jpeg
+*.jfif
+*.gif
+*.webp
+*.bmp
+*.tif
+*.tiff
+*.ico
+
+# Python
+__pycache__/
+*.py[cod]

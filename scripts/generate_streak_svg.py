@@ -21,11 +21,7 @@ def get_data(user):
         with urllib.request.urlopen(url, timeout=25) as r:
             return json.loads(r.read().decode())
     except Exception as e:
-        # fallback to a local snapshot if the API is unreachable
-        here = os.path.join(os.path.dirname(os.path.abspath(__file__)), "contrib.json")
-        if os.path.exists(here):
-            print("API failed (%s); using local contrib.json" % e)
-            return json.load(open(here))
+        print("contribution API failed: %s" % e, file=sys.stderr)
         raise
 
 data = get_data(USER)
