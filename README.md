@@ -32,9 +32,9 @@
 <p><b>Full Stack Developer · Founding Engineer</b></p>
 
 <p>
-<a href="https://linkedin.com/in/rupak-gunturu-52568a2b9"><img src="./linkedin-badge.svg" width="152" alt="LinkedIn — Rupak Gunturu" /></a>
-<a href="https://rupakgunturu.online"><img src="./portfolio-badge.svg" width="156" alt="Portfolio — rupakgunturu.online" /></a>
-<a href="mailto:rupak18.dev@gmail.com"><img src="./email-badge.svg" width="128" alt="Email — rupak18.dev@gmail.com" /></a>
+<a href="https://linkedin.com/in/rupak-gunturu-52568a2b9"><img src="./linkedin-badge.svg" width="118" alt="LinkedIn — Rupak Gunturu" /></a>
+<a href="https://rupakgunturu.online"><img src="./portfolio-badge.svg" width="122" alt="Portfolio — rupakgunturu.online" /></a>
+<a href="mailto:rupak18.dev@gmail.com"><img src="./email-badge.svg" width="98" alt="Email — rupak18.dev@gmail.com" /></a>
 </p>
 
 <br>

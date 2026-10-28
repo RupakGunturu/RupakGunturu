@@ -16,3 +16,4 @@ RSR18*
 # Python
 __pycache__/
 *.py[cod]
+dist/
