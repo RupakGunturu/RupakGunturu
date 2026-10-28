@@ -31,7 +31,7 @@
 
 <p><b>Software Developer</b></p>
 
-[![LinkedIn](https://img.shields.io/badge/LinkedIn-rupak--gunturu-0A66C2?style=for-the-badge&logo=linkedin&logoColor=white)](https://linkedin.com/in/rupak-gunturu-52568a2b9) [![email](https://img.shields.io/badge/Email-D14836?logo=gmail&logoColor=white)](mailto:ravi.genzgalaxy@gmail.com)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-rupak--gunturu-0A66C2?style=for-the-badge&logo=linkedin&logoColor=white)](https://linkedin.com/in/rupak-gunturu-52568a2b9) [![Email](https://img.shields.io/badge/Email-rupak18.dev@gmail.com-EA4335?style=for-the-badge&logo=gmail&logoColor=white)](mailto:rupak18.dev@gmail.com)
 
 <br>
 
