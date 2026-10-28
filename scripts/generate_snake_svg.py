@@ -1,50 +1,53 @@
 #!/usr/bin/env python3
-"""Generate an animated contribution snake that covers only the date range in
-data/contributions.json (already filtered to start on Feb 1).
+"""Generate a Platane-style contribution snake over the filtered date range.
 
-Stdlib only. Writes two self-contained SVGs into dist/ so the existing workflow
-can publish them to the output branch:
+The visual matches the old output-branch animation:
+  * 53-week grid (880x192) with 16px cells / 12px dots
+  * a 4-cell purple snake moving through the grid
+  * dots disappear as the head reaches them and reset when the loop restarts
+  * a thin progress bar fills at the bottom
+  * CSS keyframes only, so it animates inside <img> on GitHub
 
-    dist/github-contribution-grid-snake.svg
-    dist/github-contribution-grid-snake-dark.svg
-
-The snake follows a serpentine path across the grid; contributed cells flash as
-the head passes over them. SMIL/CSS only so it works inside <img> on GitHub.
+The path is a randomized Hamiltonian path (serpentine base + "backbite" moves),
+so the snake wanders instead of sweeping row by row.  Only data already filtered
+from Feb 1 in data/contributions.json is drawn.
 
     python scripts/generate_snake_svg.py [data.json] [out_dir]
 """
 import datetime as dt
 import json
 import os
+import random
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DATA = sys.argv[1] if len(sys.argv) > 1 else os.path.join(HERE, "..", "data", "contributions.json")
 OUTDIR = sys.argv[2] if len(sys.argv) > 2 else os.path.join(HERE, "..", "dist")
+START_DATE = os.environ.get("GH_PROFILE_START", "2026-02-01")
 
-CELL = 13
-GAP = 4
-STEP = CELL + GAP
-LEFT = 34
-TOP = 22
-RAD = 2.5
-DUR = 16.0
-
-MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
-          "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+COLS = 53
+ROWS = 7
+CELL = 16
+DOT = 12
+RAD = 2
+SNAKE_LEN = 4
+STEP_MS = 145
+MIX_ITERS = 20000
+SEED = 1
+MIN_EXIT = 45
 
 PALETTES = {
     "light": {
         "empty": "#ebedf0",
         "levels": ["#ebedf0", "#9be9a8", "#40c463", "#30a14e", "#216e39"],
-        "snake": "#216e39",
-        "text": "#57606a",
+        "border": "#1b1f230a",
+        "snake": "purple",
     },
     "dark": {
         "empty": "#161b22",
-        "levels": ["#161b22", "#0e4429", "#006d32", "#26a641", "#39d353"],
-        "snake": "#39d353",
-        "text": "#7d8590",
+        "levels": ["#161b22", "#01311f", "#034525", "#0f6d31", "#00c647"],
+        "border": "#1b1f230a",
+        "snake": "purple",
     },
 }
 
@@ -55,110 +58,240 @@ def load(path):
 
 
 def build_grid(days):
-    first = dt.date.fromisoformat(days[0]["date"])
-    last = dt.date.fromisoformat(days[-1]["date"])
-    start = first - dt.timedelta(days=(first.weekday() + 1) % 7)
-    total = (last - start).days + 1
-    ncols = (total + 6) // 7
+    last = max(dt.date.fromisoformat(d["date"]) for d in days)
+    end_sunday = last - dt.timedelta(days=(last.weekday() + 1) % 7)
+    start = end_sunday - dt.timedelta(weeks=COLS - 1)
     by_date = {d["date"]: d for d in days}
-    cells = []
-    for i in range(total):
-        day = start + dt.timedelta(days=i)
-        d = by_date.get(day.isoformat())
-        cells.append({
-            "col": i // 7,
-            "row": i % 7,
-            "level": min(int(d["level"]), 4) if d else 0,
-            "count": int(d["count"]) if d else 0,
-            "outside": d is None,
-        })
-    return start, ncols, cells
+    dots = {}
+    for col in range(COLS):
+        for row in range(ROWS):
+            date = (start + dt.timedelta(days=col * 7 + row)).isoformat()
+            d = by_date.get(date)
+            if d and d["date"] >= START_DATE and d["count"] > 0:
+                dots[(col, row)] = max(1, min(int(d.get("level", 1)), 4))
+    return start, last, dots
 
 
-def month_labels(start, ncols):
-    out, last = [], None
-    for col in range(ncols):
-        d = start + dt.timedelta(days=col * 7)
-        if d.month != last:
-            last = d.month
-            out.append((col, MONTHS[d.month - 1]))
+def neighbors(cell):
+    x, y = cell
+    for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+        nx, ny = x + dx, y + dy
+        if 0 <= nx < COLS and 0 <= ny < ROWS:
+            yield (nx, ny)
+
+
+def base_path():
+    path = []
+    for row in range(ROWS):
+        xs = range(COLS) if row % 2 == 0 else range(COLS - 1, -1, -1)
+        path.extend((x, row) for x in xs)
+    return path
+
+
+def mix_path(path, iterations, seed):
+    rnd = random.Random(seed)
+    pos = {cell: i for i, cell in enumerate(path)}
+    for _ in range(iterations):
+        end = path[-1]
+        choices = [n for n in neighbors(end) if n != path[-2]]
+        if not choices:
+            continue
+        target = rnd.choice(choices)
+        i = pos[target]
+        segment = path[i + 1:]
+        segment.reverse()
+        path[i + 1:] = segment
+        for k in range(i + 1, len(path)):
+            pos[path[k]] = k
+    return path
+
+
+def build_route(path):
+    route = [(0, -1)] + path
+    x, y = path[-1]
+    for yy in range(y - 1, -2, -1):
+        route.append((x, yy))
+    for xx in range(x - 1, -1, -1):
+        route.append((xx, -1))
+    while len(route) - 1 - len(path) < MIN_EXIT:
+        route.append((0, -1))
+    return route
+
+
+def compress(points):
+    out = []
+    for i, point in enumerate(points):
+        if i == 0 or i == len(points) - 1:
+            out.append(point)
+            continue
+        prev = points[i - 1]
+        nxt = points[i + 1]
+        if (abs((prev[1] + nxt[1]) / 2 - point[1]) < 0.01
+                and abs((prev[2] + nxt[2]) / 2 - point[2]) < 0.01):
+            continue
+        out.append(point)
     return out
 
 
-def path_points(ncols):
-    pts = []
-    for col in range(ncols):
-        rows = range(7) if col % 2 == 0 else range(6, -1, -1)
-        for row in rows:
-            pts.append((LEFT + col * STEP + CELL / 2, TOP + row * STEP + CELL / 2))
-    return pts
+def pct(value):
+    return f"{value * 100:.2f}%"
 
 
 def render(days, palette, out_path):
-    start, ncols, cells = build_grid(days)
-    W = LEFT + ncols * STEP + CELL + 10
-    H = TOP + 7 * STEP + 24
-    total = sum(d["count"] for d in days)
-    first = days[0]["date"]
-    last = days[-1]["date"]
-    f = dt.date.fromisoformat(first)
-    l = dt.date.fromisoformat(last)
+    start, last, dots = build_grid(days)
+    path = mix_path(base_path(), MIX_ITERS, SEED)
+    if len(path) != COLS * ROWS or len(set(path)) != len(path):
+        raise RuntimeError("path generation did not cover the grid")
 
-    p = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" '
-         f'viewBox="0 0 {W} {H}" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif">',
-         '<style>',
-         'text.lbl{fill:' + palette["text"] + ';font-size:12px;font-weight:600}',
-         'text.foot{fill:' + palette["text"] + ';font-size:11px}',
-         f'.eat{{animation:eat {DUR}s linear infinite}}',
-         '@keyframes eat{0%{filter:brightness(2.6)}1%{filter:brightness(2.6)}'
-         '3%,100%{filter:brightness(1)}}',
-         '@media (prefers-reduced-motion:reduce){.eat{animation:none}.snake{display:none}}',
-         '</style>']
+    route = build_route(path)
+    total = len(route)
+    duration = total * STEP_MS
 
-    for col, mon in month_labels(start, ncols):
-        p.append(f'<text class="lbl" x="{LEFT + col * STEP}" y="{TOP - 6}">{mon}</text>')
-    for name, row in [("Mon", 1), ("Wed", 3), ("Fri", 5)]:
-        p.append(f'<text class="lbl" x="4" y="{TOP + row * STEP + CELL - 3}">{name}</text>')
+    eat_step = {}
+    for i, cell in enumerate(route):
+        if cell in dots and cell not in eat_step:
+            eat_step[cell] = i
+    missing = set(dots) - set(eat_step)
+    if missing:
+        raise RuntimeError(f"{len(missing)} contribution cells were not reached")
 
-    for c in cells:
-        if c["outside"]:
-            continue
-        x = LEFT + c["col"] * STEP
-        y = TOP + c["row"] * STEP
-        lvl = c["level"]
-        if lvl == 0:
-            p.append(f'<rect x="{x}" y="{y}" width="{CELL}" height="{CELL}" rx="{RAD}" '
-                     f'fill="{palette["levels"][0]}"/>')
+    dot_items = sorted(eat_step.items(), key=lambda item: item[1])
+    dot_class = {cell: f"c{k}" for k, (cell, _) in enumerate(dot_items)}
+
+    styles = [
+        f".c{{shape-rendering:geometricPrecision;fill:{palette['empty']};"
+        f"stroke-width:1px;stroke:{palette['border']};"
+        f"animation:none linear {duration}ms infinite;width:{DOT}px;height:{DOT}px}}"
+    ]
+
+    for k, (cell, step) in enumerate(dot_items):
+        level = dots[cell]
+        t = step / total
+        styles.append(
+            f"@keyframes c{k}{{{pct(t)}{{fill:{palette['levels'][level]}}}"
+            f"{pct(min(1.0, t + 0.0002))},100%{{fill:{palette['empty']}}}}}"
+        )
+        styles.append(
+            f".c.c{k}{{fill:{palette['levels'][level]};animation-name:c{k}}}"
+        )
+
+    styles.append(
+        f".s{{shape-rendering:geometricPrecision;fill:{palette['snake']};"
+        f"animation:none linear {duration}ms infinite}}"
+    )
+    d_min = DOT * 0.8
+    d_max = CELL * 0.9
+    i_max = min(4, SNAKE_LEN)
+    snake_rects = []
+    for j in range(SNAKE_LEN):
+        u = (1 - min(j, i_max) / i_max) ** 2
+        size = (1 - u) * d_min + u * d_max
+        margin = (CELL - size) / 2
+        radius = min(4.5, 4 * size / DOT)
+        snake_rects.append(
+            f'<rect class="s s{j}" x="{margin:.1f}" y="{margin:.1f}" '
+            f'width="{size:.1f}" height="{size:.1f}" '
+            f'rx="{radius:.1f}" ry="{radius:.1f}"/>'
+        )
+
+        points = []
+        for i in range(total):
+            idx = i - j
+            if idx >= 0:
+                x, y = route[idx]
+            else:
+                x, y = 0, -1 - (j - i)
+            points.append((i / total, x, y))
+        frames = compress(points)
+        if frames[-1][0] < 1.0:
+            frames.append((1.0, frames[-1][1], frames[-1][2]))
+
+        keyframes = "".join(
+            f"{pct(t)}{{transform:translate({x * CELL:.0f}px,{y * CELL:.0f}px)}}"
+            for t, x, y in frames
+        )
+        styles.append(f"@keyframes s{j}{{{keyframes}}}")
+        styles.append(
+            f".s.s{j}{{transform:translate({points[0][1] * CELL:.0f}px,"
+            f"{points[0][2] * CELL:.0f}px);animation-name:s{j}}}"
+        )
+
+    eaten = [(step, dots[cell]) for cell, step in dot_items]
+    blocks = []
+    for step, level in eaten:
+        if blocks and blocks[-1][0] == level:
+            blocks[-1][1].append(step)
         else:
-            idx = c["col"] * 7 + (c["row"] if c["col"] % 2 == 0 else 6 - c["row"])
-            delay = round(idx / (ncols * 7 - 1) * DUR, 3)
-            p.append(f'<rect class="eat" style="animation-delay:{delay}s" x="{x}" y="{y}" '
-                     f'width="{CELL}" height="{CELL}" rx="{RAD}" fill="{palette["levels"][lvl]}"/>')
+            blocks.append([level, [step]])
 
-    pts = path_points(ncols)
-    d = "M " + " L ".join(f"{x:.1f} {y:.1f}" for x, y in pts)
+    styles.append(
+        ".u{transform-origin:0 0;transform:scale(0,1);"
+        f"animation:none linear {duration}ms infinite}}"
+    )
+    bar_width = COLS * CELL
+    unit = bar_width / len(eaten)
+    bar_y = (ROWS + 2) * CELL
+    bar_rects = []
+    nx = 0.0
+    for k, (level, steps) in enumerate(blocks):
+        x = nx * unit
+        width = len(steps) * unit + 0.6
+        nx += len(steps)
 
-    for i, off in enumerate([0.48, 0.36, 0.24, 0.12]):
-        r = 4.4 - i * 0.4
-        op = 0.55 + i * 0.1
-        p.append(f'<g class="snake" visibility="hidden">'
-                 f'<set attributeName="visibility" to="visible" begin="{off}s"/>'
-                 f'<animateMotion dur="{DUR}s" begin="{off}s" repeatCount="indefinite" path="{d}"/>'
-                 f'<circle r="{r:.1f}" fill="{palette["snake"]}" opacity="{op:.2f}"/></g>')
+        frames = []
+        for i, step in enumerate(steps):
+            t = step / total
+            frames.append((max(0.0, t - 0.0001), i / len(steps)))
+            frames.append((min(1.0, t + 0.0001), (i + 1) / len(steps)))
+        frames.append((1.0, 1.0))
+        keyframes = "".join(
+            f"{pct(t)}{{transform:scale({scale:.5f},1)}}" for t, scale in frames
+        )
+        styles.append(f"@keyframes u{k}{{{keyframes}}}")
+        styles.append(
+            f".u.u{k}{{fill:{palette['levels'][level]};animation-name:u{k};"
+            f"transform-origin:{x:.1f}px 0}}"
+        )
+        bar_rects.append(
+            f'<rect class="u u{k}" x="{x:.1f}" y="{bar_y}" '
+            f'width="{width:.1f}" height="{DOT}"/>'
+        )
 
-    p.append(f'<g class="snake"><animateMotion dur="{DUR}s" repeatCount="indefinite" path="{d}"/>'
-             f'<rect x="-5" y="-5" width="10" height="10" rx="3" fill="{palette["snake"]}"/>'
-             f'<circle cx="-2" cy="-1.6" r="0.9" fill="#ffffff"/>'
-             f'<circle cx="2" cy="-1.6" r="0.9" fill="#ffffff"/></g>')
+    styles.append(
+        "@media (prefers-reduced-motion:reduce){.c,.s,.u{animation:none}"
+        ".s{display:none}}"
+    )
 
-    foot = f'{f.strftime("%b")} {f.day} – {l.strftime("%b")} {l.day} · {total:,} contributions'
-    p.append(f'<text class="foot" x="{LEFT}" y="{H - 6}">{foot}</text>')
-    p.append('</svg>')
+    cells = []
+    for col in range(COLS):
+        for row in range(ROWS):
+            cls = "c" + (f" {dot_class[(col, row)]}" if (col, row) in dot_class else "")
+            cells.append(
+                f'<rect class="{cls}" x="{2 + col * CELL}" y="{2 + row * CELL}" '
+                f'rx="{RAD}" ry="{RAD}"/>'
+            )
+
+    width = (COLS + 2) * CELL
+    height = (ROWS + 5) * CELL
+    svg = [
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" '
+        f'viewBox="-{CELL} -{2 * CELL} {width} {height}">',
+        f"<desc>Contribution snake - {start.isoformat()} to {last.isoformat()}, "
+        f"{len(dots)} active days</desc>",
+        "<style>" + "".join(styles) + "</style>",
+        *cells,
+        *bar_rects,
+        *snake_rects,
+        "</svg>",
+    ]
 
     os.makedirs(os.path.dirname(os.path.abspath(out_path)), exist_ok=True)
-    with open(out_path, "w", encoding="utf-8") as fh:
-        fh.write("\n".join(p))
-    print(f"wrote {out_path}: {ncols} weeks, {total:,} contributions")
+    with open(out_path, "w", encoding="utf-8", newline="\n") as fh:
+        fh.write("\n".join(svg))
+    print(
+        f"wrote {out_path}: {COLS} weeks, {len(dots)} dots, "
+        f"{total} steps, {duration / 1000:.1f}s"
+    )
 
 
 def main():
@@ -167,8 +300,10 @@ def main():
     if not days:
         print("no days in data", file=sys.stderr)
         sys.exit(1)
-    render(days, PALETTES["light"], os.path.join(OUTDIR, "github-contribution-grid-snake.svg"))
-    render(days, PALETTES["dark"], os.path.join(OUTDIR, "github-contribution-grid-snake-dark.svg"))
+    end = os.path.join(OUTDIR, "github-contribution-grid-snake.svg")
+    dark = os.path.join(OUTDIR, "github-contribution-grid-snake-dark.svg")
+    render(days, PALETTES["light"], end)
+    render(days, PALETTES["dark"], dark)
 
 
 if __name__ == "__main__":
