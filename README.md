@@ -34,5 +34,16 @@
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-rupak--gunturu-0A66C2?style=for-the-badge&logo=linkedin&logoColor=white)](https://linkedin.com/in/rupak-gunturu-52568a2b9) [![Email](https://img.shields.io/badge/Email-rupak18.dev@gmail.com-EA4335?style=for-the-badge&logo=gmail&logoColor=white)](mailto:rupak18.dev@gmail.com)
 
 <br>
+<br>
+
+<h3><code>rupak@github ~ $ python snake.py</code></h3>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/RupakGunturu/RupakGunturu/output/github-contribution-grid-snake-dark.svg" />
+  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/RupakGunturu/RupakGunturu/output/github-contribution-grid-snake.svg" />
+  <img alt="github-snake" src="https://raw.githubusercontent.com/RupakGunturu/RupakGunturu/output/github-contribution-grid-snake.svg" />
+</picture>
+
+<br>
 
 </div>
