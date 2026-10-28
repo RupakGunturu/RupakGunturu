@@ -21,6 +21,9 @@ USERNAME = os.environ.get("GH_PROFILE_USER", "RupakGunturu")
 URL = f"https://github.com/users/{USERNAME}/contributions"
 OUT_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "contributions.json")
 
+# Only count activity from this date onward (ignore older cells in the calendar).
+START_DATE = os.environ.get("GH_PROFILE_START", "2026-02-01")
+
 
 def fetch_days():
     resp = requests.get(URL, headers={"User-Agent": "profile-readme-bot/1.0"}, timeout=30)
@@ -48,6 +51,10 @@ def fetch_days():
         days.append({"date": date, "count": count, "level": int(td.get("data-level") or 0)})
 
     days.sort(key=lambda d: d["date"])
+    days = [d for d in days if d["date"] >= START_DATE]
+    if not days:
+        print(f"no contribution cells on/after {START_DATE}", file=sys.stderr)
+        sys.exit(1)
     return days
 
 
